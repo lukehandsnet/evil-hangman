@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evil Hangman</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .game-container {
+            margin-top: 20px;
+        }
+        .setup-container, .game-play-container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .word-display {
+            font-size: 2em;
+            letter-spacing: 0.5em;
+            text-align: center;
+            margin: 20px 0;
+            font-family: monospace;
+        }
+        .guessed-letters {
+            margin: 20px 0;
+        }
+        .message {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .hangman-drawing {
+            width: 200px;
+            height: 250px;
+            margin: 0 auto;
+            position: relative;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        input, select {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .debug-info {
+            margin-top: 20px;
+            font-size: 0.8em;
+            color: #666;
+        }
+        .letter-button {
+            width: 40px;
+            height: 40px;
+            margin: 5px;
+            font-size: 1.2em;
+        }
+        .keyboard {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Evil Hangman</h1>
+    
+    <div class="game-container">
+        <div id="setup-container" class="setup-container">
+            <h2>Game Setup</h2>
+            <div>
+                <label for="word-length">Word Length:</label>
+                <select id="word-length"></select>
+            </div>
+            <div style="margin-top: 10px;">
+                <label for="max-guesses">Max Guesses:</label>
+                <select id="max-guesses">
+                    <option value="6">6</option>
+                    <option value="8" selected>8</option>
+                    <option value="10">10</option>
+                    <option value="12">12</option>
+                </select>
+            </div>
+            <div style="margin-top: 20px;">
+                <button id="start-game">Start Game</button>
+            </div>
+        </div>
+        
+        <div id="game-play-container" class="game-play-container" style="display: none;">
+            <div class="word-display" id="word-display"></div>
+            
+            <div class="guessed-letters">
+                <strong>Guessed Letters:</strong> <span id="guessed-letters"></span>
+            </div>
+            
+            <div class="guesses-left">
+                <strong>Guesses Left:</strong> <span id="guesses-left"></span>
+            </div>
+            
+            <div class="keyboard" id="keyboard"></div>
+            
+            <div class="message" id="message"></div>
+            
+            <button id="new-game">New Game</button>
+            
+            <div class="debug-info">
+                <p>Remaining possible words: <span id="remaining-words">0</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const wordLengthSelect = document.getElementById('word-length');
+            const maxGuessesSelect = document.getElementById('max-guesses');
+            const startGameButton = document.getElementById('start-game');
+            const newGameButton = document.getElementById('new-game');
+            const setupContainer = document.getElementById('setup-container');
+            const gamePlayContainer = document.getElementById('game-play-container');
+            const wordDisplay = document.getElementById('word-display');
+            const guessedLetters = document.getElementById('guessed-letters');
+            const guessesLeft = document.getElementById('guesses-left');
+            const messageElement = document.getElementById('message');
+            const remainingWords = document.getElementById('remaining-words');
+            const keyboard = document.getElementById('keyboard');
+            
+            // Game state
+            let gameState = {
+                game_over: true,
+                guessed_letters: []
+            };
+            
+            // Initialize the game
+            init();
+            
+            function init() {
+                // Load available word lengths
+                fetch('/api/lengths')
+                    .then(response => response.json())
+                    .then(lengths => {
+                        wordLengthSelect.innerHTML = '';
+                        lengths.forEach(length => {
+                            const option = document.createElement('option');
+                            option.value = length;
+                            option.textContent = length;
+                            if (length === 5) option.selected = true;
+                            wordLengthSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error('Error loading word lengths:', error));
+                
+                // Create keyboard
+                createKeyboard();
+                
+                // Add event listeners
+                startGameButton.addEventListener('click', startGame);
+                newGameButton.addEventListener('click', resetGame);
+            }
+            
+            function createKeyboard() {
+                keyboard.innerHTML = '';
+                for (let i = 97; i <= 122; i++) {
+                    const letter = String.fromCharCode(i);
+                    const button = document.createElement('button');
+                    button.textContent = letter;
+                    button.className = 'letter-button';
+                    button.dataset.letter = letter;
+                    button.addEventListener('click', function() {
+                        makeGuess(letter);
+                    });
+                    keyboard.appendChild(button);
+                }
+            }
+            
+            function startGame() {
+                const wordLength = parseInt(wordLengthSelect.value);
+                const maxGuesses = parseInt(maxGuessesSelect.value);
+                
+                fetch('/api/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        word_length: wordLength,
+                        max_guesses: maxGuesses
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showMessage(data.error, 'error');
+                    } else {
+                        gameState = data;
+                        setupContainer.style.display = 'none';
+                        gamePlayContainer.style.display = 'block';
+                        updateGameDisplay();
+                        resetKeyboard();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error starting game:', error);
+                    showMessage('Error starting game. Please try again.', 'error');
+                });
+            }
+            
+            function makeGuess(letter) {
+                if (gameState.game_over || gameState.guessed_letters.includes(letter)) {
+                    return;
+                }
+                
+                fetch('/api/guess', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        guess: letter
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showMessage(data.error, 'error');
+                    } else {
+                        gameState = data;
+                        updateGameDisplay();
+                        updateKeyboard();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error making guess:', error);
+                    showMessage('Error making guess. Please try again.', 'error');
+                });
+            }
+            
+            function updateGameDisplay() {
+                wordDisplay.textContent = gameState.current_pattern;
+                guessedLetters.textContent = gameState.guessed_letters.join(', ');
+                guessesLeft.textContent = gameState.guesses_left;
+                remainingWords.textContent = gameState.remaining_words;
+                
+                if (gameState.message) {
+                    let messageType = 'info';
+                    if (gameState.game_over) {
+                        messageType = gameState.won ? 'success' : 'error';
+                    }
+                    showMessage(gameState.message, messageType);
+                }
+            }
+            
+            function updateKeyboard() {
+                const buttons = keyboard.querySelectorAll('button');
+                buttons.forEach(button => {
+                    const letter = button.dataset.letter;
+                    if (gameState.guessed_letters.includes(letter)) {
+                        button.disabled = true;
+                        if (gameState.current_pattern.includes(letter)) {
+                            button.style.backgroundColor = '#4CAF50';
+                        } else {
+                            button.style.backgroundColor = '#f44336';
+                        }
+                    }
+                });
+            }
+            
+            function resetKeyboard() {
+                const buttons = keyboard.querySelectorAll('button');
+                buttons.forEach(button => {
+                    button.disabled = false;
+                    button.style.backgroundColor = '';
+                });
+            }
+            
+            function resetGame() {
+                setupContainer.style.display = 'block';
+                gamePlayContainer.style.display = 'none';
+                gameState = {
+                    game_over: true,
+                    guessed_letters: []
+                };
+            }
+            
+            function showMessage(message, type) {
+                messageElement.textContent = message;
+                messageElement.className = 'message ' + type;
+            }
+        });
+    </script>
+</body>
+</html>
