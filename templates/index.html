@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Evil Hangman</title>
+    <!-- CSS Styles for the game interface -->
     <style>
+        /* Base page styling */
         body {
             font-family: Arial, sans-serif;
             max-width: 800px;
@@ -12,85 +14,102 @@
             padding: 20px;
             line-height: 1.6;
         }
+        /* Header styling */
         h1 {
             color: #333;
             text-align: center;
         }
+        /* Main game container */
         .game-container {
             margin-top: 20px;
         }
+        /* Container styling for setup and gameplay sections */
         .setup-container, .game-play-container {
             border: 1px solid #ddd;
             padding: 20px;
             border-radius: 5px;
             margin-bottom: 20px;
         }
+        /* Styling for the word display (with underscores for hidden letters) */
         .word-display {
             font-size: 2em;
-            letter-spacing: 0.5em;
+            letter-spacing: 0.5em; /* Add space between letters */
             text-align: center;
             margin: 20px 0;
-            font-family: monospace;
+            font-family: monospace; /* Use monospace for even letter spacing */
         }
+        /* Styling for the guessed letters display */
         .guessed-letters {
             margin: 20px 0;
         }
+        /* Base style for message display */
         .message {
             margin: 20px 0;
             padding: 10px;
             border-radius: 5px;
         }
+        /* Success message styling (green) */
         .success {
             background-color: #d4edda;
             color: #155724;
         }
+        /* Error message styling (red) */
         .error {
             background-color: #f8d7da;
             color: #721c24;
         }
+        /* Info message styling (blue) */
         .info {
             background-color: #d1ecf1;
             color: #0c5460;
         }
+        /* Hangman drawing container (not actively used in this version) */
         .hangman-drawing {
             width: 200px;
             height: 250px;
             margin: 0 auto;
             position: relative;
         }
+        /* Button styling */
         button {
             padding: 8px 16px;
-            background-color: #4CAF50;
+            background-color: #4CAF50; /* Green */
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             margin-right: 5px;
         }
+        /* Button hover effect */
         button:hover {
-            background-color: #45a049;
+            background-color: #45a049; /* Darker green */
         }
+        /* Disabled button styling */
         button:disabled {
-            background-color: #cccccc;
+            background-color: #cccccc; /* Gray */
             cursor: not-allowed;
         }
+        /* Input fields and selects styling */
         input, select {
             padding: 8px;
             margin-right: 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        /* Debug information display */
         .debug-info {
             margin-top: 20px;
             font-size: 0.8em;
             color: #666;
         }
+        /* Individual letter buttons in the keyboard */
         .letter-button {
             width: 40px;
             height: 40px;
             margin: 5px;
             font-size: 1.2em;
         }
+        /* Virtual keyboard container */
         .keyboard {
             display: flex;
             flex-wrap: wrap;
@@ -100,15 +119,21 @@
     </style>
 </head>
 <body>
+    <!-- Main game title -->
     <h1>Evil Hangman</h1>
     
+    <!-- Main container for all game elements -->
     <div class="game-container">
+        <!-- Game setup section - shown before starting a game -->
         <div id="setup-container" class="setup-container">
             <h2>Game Setup</h2>
+            <!-- Word length selection -->
             <div>
                 <label for="word-length">Word Length:</label>
                 <select id="word-length"></select>
+                <!-- Options populated dynamically from available word lengths in the dictionary -->
             </div>
+            <!-- Maximum guesses selection -->
             <div style="margin-top: 10px;">
                 <label for="max-guesses">Max Guesses:</label>
                 <select id="max-guesses">
@@ -118,37 +143,48 @@
                     <option value="12">12</option>
                 </select>
             </div>
+            <!-- Start game button -->
             <div style="margin-top: 20px;">
                 <button id="start-game">Start Game</button>
             </div>
         </div>
         
+        <!-- Game play section - hidden until game starts -->
         <div id="game-play-container" class="game-play-container" style="display: none;">
+            <!-- Current word pattern display (shows underscores and revealed letters) -->
             <div class="word-display" id="word-display"></div>
             
+            <!-- Display for letters already guessed -->
             <div class="guessed-letters">
                 <strong>Guessed Letters:</strong> <span id="guessed-letters"></span>
             </div>
             
+            <!-- Display for remaining guesses -->
             <div class="guesses-left">
                 <strong>Guesses Left:</strong> <span id="guesses-left"></span>
             </div>
             
+            <!-- Virtual keyboard for selecting letters -->
             <div class="keyboard" id="keyboard"></div>
             
+            <!-- Message area for game feedback -->
             <div class="message" id="message"></div>
             
+            <!-- Button to start a new game -->
             <button id="new-game">New Game</button>
             
+            <!-- Debug information showing the number of possible words -->
             <div class="debug-info">
                 <p>Remaining possible words: <span id="remaining-words">0</span></p>
             </div>
         </div>
     </div>
 
+    <!-- JavaScript for game functionality -->
     <script>
+        // Initialize the game when the DOM is fully loaded
         document.addEventListener('DOMContentLoaded', function() {
-            // DOM elements
+            // Get references to DOM elements
             const wordLengthSelect = document.getElementById('word-length');
             const maxGuessesSelect = document.getElementById('max-guesses');
             const startGameButton = document.getElementById('start-game');
@@ -162,7 +198,7 @@
             const remainingWords = document.getElementById('remaining-words');
             const keyboard = document.getElementById('keyboard');
             
-            // Game state
+            // Initialize game state object
             let gameState = {
                 game_over: true,
                 guessed_letters: []
@@ -171,32 +207,41 @@
             // Initialize the game
             init();
             
+            /**
+             * Initialize the game by loading word lengths and setting up the interface
+             */
             function init() {
-                // Load available word lengths
+                // Load available word lengths from the server
                 fetch('/api/lengths')
                     .then(response => response.json())
                     .then(lengths => {
+                        // Populate the word length dropdown
                         wordLengthSelect.innerHTML = '';
                         lengths.forEach(length => {
                             const option = document.createElement('option');
                             option.value = length;
                             option.textContent = length;
+                            // Default to 5-letter words if available
                             if (length === 5) option.selected = true;
                             wordLengthSelect.appendChild(option);
                         });
                     })
                     .catch(error => console.error('Error loading word lengths:', error));
                 
-                // Create keyboard
+                // Create the virtual keyboard
                 createKeyboard();
                 
-                // Add event listeners
+                // Add event listeners for game buttons
                 startGameButton.addEventListener('click', startGame);
                 newGameButton.addEventListener('click', resetGame);
             }
             
+            /**
+             * Create a virtual keyboard with buttons for each letter
+             */
             function createKeyboard() {
                 keyboard.innerHTML = '';
+                // Create buttons for each letter (a-z)
                 for (let i = 97; i <= 122; i++) {
                     const letter = String.fromCharCode(i);
                     const button = document.createElement('button');
@@ -210,10 +255,14 @@
                 }
             }
             
+            /**
+             * Start a new game with the selected word length and max guesses
+             */
             function startGame() {
                 const wordLength = parseInt(wordLengthSelect.value);
                 const maxGuesses = parseInt(maxGuessesSelect.value);
                 
+                // Call the API to start a new game
                 fetch('/api/start', {
                     method: 'POST',
                     headers: {
@@ -227,8 +276,10 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
+                        // Show error message if something went wrong
                         showMessage(data.error, 'error');
                     } else {
+                        // Update game state and UI
                         gameState = data;
                         setupContainer.style.display = 'none';
                         gamePlayContainer.style.display = 'block';
@@ -242,11 +293,17 @@
                 });
             }
             
+            /**
+             * Make a guess with the selected letter
+             * @param {string} letter - The letter being guessed
+             */
             function makeGuess(letter) {
+                // Skip if game is over or letter already guessed
                 if (gameState.game_over || gameState.guessed_letters.includes(letter)) {
                     return;
                 }
                 
+                // Call the API to make a guess
                 fetch('/api/guess', {
                     method: 'POST',
                     headers: {
@@ -259,8 +316,10 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
+                        // Show error message if something went wrong
                         showMessage(data.error, 'error');
                     } else {
+                        // Update game state and UI
                         gameState = data;
                         updateGameDisplay();
                         updateKeyboard();
@@ -272,12 +331,20 @@
                 });
             }
             
+            /**
+             * Update the game display with the current game state
+             */
             function updateGameDisplay() {
+                // Update word pattern display
                 wordDisplay.textContent = gameState.current_pattern;
+                // Update guessed letters display
                 guessedLetters.textContent = gameState.guessed_letters.join(', ');
+                // Update guesses left display
                 guessesLeft.textContent = gameState.guesses_left;
+                // Update debug info (remaining possible words)
                 remainingWords.textContent = gameState.remaining_words;
                 
+                // Show game message with appropriate styling
                 if (gameState.message) {
                     let messageType = 'info';
                     if (gameState.game_over) {
@@ -287,21 +354,29 @@
                 }
             }
             
+            /**
+             * Update the keyboard to reflect guessed letters
+             */
             function updateKeyboard() {
                 const buttons = keyboard.querySelectorAll('button');
                 buttons.forEach(button => {
                     const letter = button.dataset.letter;
+                    // Disable buttons for letters that have been guessed
                     if (gameState.guessed_letters.includes(letter)) {
                         button.disabled = true;
+                        // Color the button green if the letter is in the word
                         if (gameState.current_pattern.includes(letter)) {
-                            button.style.backgroundColor = '#4CAF50';
+                            button.style.backgroundColor = '#4CAF50'; // Green
                         } else {
-                            button.style.backgroundColor = '#f44336';
+                            button.style.backgroundColor = '#f44336'; // Red
                         }
                     }
                 });
             }
             
+            /**
+             * Reset the keyboard to its initial state
+             */
             function resetKeyboard() {
                 const buttons = keyboard.querySelectorAll('button');
                 buttons.forEach(button => {
@@ -310,6 +385,9 @@
                 });
             }
             
+            /**
+             * Reset the game by showing the setup screen
+             */
             function resetGame() {
                 setupContainer.style.display = 'block';
                 gamePlayContainer.style.display = 'none';
@@ -319,6 +397,11 @@
                 };
             }
             
+            /**
+             * Show a message with appropriate styling
+             * @param {string} message - The message text
+             * @param {string} type - The message type (success, error, info)
+             */
             function showMessage(message, type) {
                 messageElement.textContent = message;
                 messageElement.className = 'message ' + type;
